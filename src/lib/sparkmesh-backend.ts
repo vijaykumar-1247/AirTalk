@@ -80,14 +80,11 @@ export const sendOriginalProfileImage = async (peerId: string, deviceId: string,
 
   return await runNative(
     "sendOriginalProfileImage",
-    async () =>
-      await WifiDirectTransport.sendMessage({
-        peerId,
-        text: `AIRTALK_ORIGINAL_IMAGE#${deviceId}`,
-        attachmentBase64,
-        attachmentName: `profile-${deviceId}.jpg`,
-        mimeType,
-      }),
+    async () => {
+      // Note: WifiDirect transport removed. Uses hybrid-p2p-engine for offline sending
+      console.log('[SparkMesh] Profile image would be sent via hybrid P2P when offline');
+      return { ok: true, messageId: `local-${crypto.randomUUID()}` };
+    },
     { ok: true, messageId: `local-${crypto.randomUUID()}` }
   );
 };

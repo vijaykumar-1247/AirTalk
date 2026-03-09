@@ -46,7 +46,6 @@ class BackgroundNotificationService {
             : message.text || 'New message',
           id: Date.now(),
           sound: 'default',
-          priority: 2, // High priority
           channelId: 'chat-messages',
         }],
       });
@@ -66,7 +65,6 @@ class BackgroundNotificationService {
           body: `Call from ${call.fromUserName}`,
           id: Date.now(),
           sound: 'default',
-          priority: 2, // High priority
           channelId: 'incoming-calls',
         }],
       });
@@ -86,7 +84,6 @@ class BackgroundNotificationService {
           body: `Friend request from ${request.fromUserName}`,
           id: Date.now(),
           sound: 'default',
-          priority: 1, // Default priority
           channelId: 'friend-requests',
         }],
       });

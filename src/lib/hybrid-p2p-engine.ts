@@ -6,7 +6,8 @@
  * Phase 4: Local Messaging
  */
 
-import { bluetoothDiscoveryService, type SparkMeshUser } from '@/lib/bluetooth-discovery';
+import { bluetoothDiscoveryService } from '@/lib/bluetooth-discovery';
+import type { SparkMeshUser } from '@/types/sparkmesh';
 import { localMessagingEngine, type LocalPeerConnection, type LocalMessage } from '@/lib/local-messaging';
 import { wiFiDirectEngine, type WiFiDirectPeer } from '@/lib/wifi-direct-engine';
 import {
@@ -344,4 +345,3 @@ class HybridP2PEngine {
 }
 
 export const hybridP2PEngine = new HybridP2PEngine();
-export type { OfflinePeerState };

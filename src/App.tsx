@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { Navigate, Route, Routes, BrowserRouter, useLocation, useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import IncomingCallBanner from "@/components/sparkmesh/IncomingCallBanner";
@@ -45,7 +45,7 @@ const GlobalIncomingCallLayer = () => {
 
   const canShowBanner = Boolean(incomingCallInvite && authUserId && profile?.name && !location.pathname.startsWith("/call/"));
 
-  const acceptIncomingCall = async () => {
+  const acceptIncomingCall = useCallback(async () => {
     const acceptedInvite = await acceptIncomingCallInvite();
     if (!acceptedInvite) return;
 
@@ -63,11 +63,11 @@ const GlobalIncomingCallLayer = () => {
         returnTo,
       },
     });
-  };
+  }, [acceptIncomingCallInvite, location.pathname, navigate, authUserId, profile?.name]);
 
-  const declineIncomingCall = async () => {
+  const declineIncomingCall = useCallback(async () => {
     await declineIncomingCallInvite();
-  };
+  }, [declineIncomingCallInvite]);
 
   useEffect(() => {
     if (!isNativeCallNotificationSupported()) return;
@@ -101,7 +101,7 @@ const GlobalIncomingCallLayer = () => {
         void listenerHandle.remove();
       }
     };
-  }, [incomingCallInvite, acceptIncomingCallInvite, authUserId, declineIncomingCallInvite, location.pathname, navigate, profile?.name]);
+  }, [incomingCallInvite, acceptIncomingCall, declineIncomingCall]);
 
   if (!canShowBanner || !incomingCallInvite) return null;
 

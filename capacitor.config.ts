@@ -4,7 +4,6 @@ const config: CapacitorConfig = {
   appId: "com.airtalk.app",
   appName: "Air Talk",
   webDir: "dist",
-  bundledWebRuntime: false,
   plugins: {
     BluetoothLe: {
       displayStrings: {
