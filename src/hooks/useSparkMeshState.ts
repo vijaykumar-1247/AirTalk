@@ -23,6 +23,8 @@ import {
   initializeNativeCallNotifications,
   showNativeIncomingCallNotification,
 } from "@/lib/native-call-notifications";
+import { buildBroadcastIdentifier } from "@/lib/offline-p2p";
+import { startOfflineBroadcast } from "@/lib/sparkmesh-backend";
 import type {
   AppMode,
   AttachmentPayload,
@@ -503,6 +505,13 @@ export const useSparkMeshState = () => {
         } catch (error) {
           console.warn('Failed to save profile to preferences:', error);
         }
+        if (localProfile) {
+          try {
+            await startOfflineBroadcast(buildBroadcastIdentifier(localProfile));
+          } catch (error) {
+            console.warn('Failed to start offline broadcast:', error);
+          }
+        }
         setAppMode("offline");
         setIsInitializing(false);
         return;
@@ -529,6 +538,11 @@ export const useSparkMeshState = () => {
           console.warn('Failed to save profile to preferences:', error);
         }
         saveLocalProfileSnapshot(mappedProfile, "online");
+        try {
+          await startOfflineBroadcast(buildBroadcastIdentifier(mappedProfile));
+        } catch (error) {
+          console.warn('Failed to start offline broadcast:', error);
+        }
       }
 
       await loadUsers(currentUserId);
