@@ -4,6 +4,8 @@
 
 body {
   overscroll-behavior-y: none;
+  padding-top: env(safe-area-inset-top, 24px);
+  padding-bottom: env(safe-area-inset-bottom, 24px);
 }
 
 @layer base {
@@ -130,6 +132,23 @@ body {
   body {
     @apply bg-background text-foreground antialiased;
     font-family: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+
+  /* Extend header background into status bar */
+  header {
+    background: hsl(var(--primary));
+    position: relative;
+  }
+
+  header::before {
+    content: '';
+    position: absolute;
+    top: calc(-1 * env(safe-area-inset-top, 0px));
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-top, 0px);
+    background: hsl(var(--primary));
+    z-index: -1;
   }
 }
 

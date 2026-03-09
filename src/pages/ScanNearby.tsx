@@ -24,7 +24,6 @@ import {
 import { getPlatformSyncedDeviceId } from "@/lib/device-id";
 import { useAppLanguage } from "@/lib/i18n";
 import { supabase } from "@/integrations/supabase/client";
-import { WifiDirectTransport } from "@/plugins/wifi-direct-transport";
 import type { IncomingAirTalkRequest, SparkMeshUser } from "@/types/sparkmesh";
 
 const getSignalQuality = (ping: number) => {
@@ -187,47 +186,6 @@ const ScanNearby = () => {
       if (notificationChannel) supabase.removeChannel(notificationChannel);
     };
   }, [fetchPendingRequests]);
-
-  useEffect(() => {
-    let messageListener: PluginListenerHandle | null = null;
-    let connectionListener: PluginListenerHandle | null = null;
-
-    const bootstrapNativeListeners = async () => {
-      try {
-        messageListener = await WifiDirectTransport.addListener("messageReceived", (event) => {
-          if (!event.text?.startsWith("AIRTALK_ORIGINAL_IMAGE#") || !event.attachmentBase64) return;
-          const deviceId = event.text.split("#")[1]?.trim();
-          if (!deviceId) return;
-
-          const mimeType = event.mimeType?.trim() || "image/jpeg";
-          const imageDataUrl = `data:${mimeType};base64,${event.attachmentBase64}`;
-          saveOriginalPeerImage(deviceId, imageDataUrl);
-
-          setScannedDevices((prev) =>
-            prev.map((entry) => (entry.deviceId === deviceId ? { ...entry, avatarUrl: imageDataUrl } : entry))
-          );
-        });
-
-        connectionListener = await WifiDirectTransport.addListener("peerConnectionStateChanged", (event) => {
-          setConnectedPeerIds((prev) => {
-            const current = new Set(prev);
-            if (event.status === "connected") current.add(event.peerId);
-            if (event.status === "disconnected") current.delete(event.peerId);
-            return Array.from(current);
-          });
-        });
-      } catch {
-        // Native listeners unavailable in web preview.
-      }
-    };
-
-    void bootstrapNativeListeners();
-
-    return () => {
-      if (messageListener) void messageListener.remove();
-      if (connectionListener) void connectionListener.remove();
-    };
-  }, []);
 
   useEffect(() => {
     if (appMode !== "offline") return;
@@ -419,7 +377,7 @@ const ScanNearby = () => {
 
   return (
     <main className="app-wallpaper-bg mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
-      <header className="sticky top-0 z-30 flex items-center justify-between bg-primary px-4 py-3 text-primary-foreground shadow-card">
+      <header className="sticky top-0 z-30 flex items-center justify-between bg-primary px-4 py-3 text-primary-foreground shadow-card" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
         <div>
             <h1 className="text-left text-lg font-semibold">{t("scan.title")}</h1>
             <p className="text-left text-xs text-primary-foreground/80">{profile?.name ?? "AirTalk Node"} • {appMode === "online" ? t("scan.onlineMode") : t("scan.offlineMode")}</p>

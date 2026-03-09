@@ -364,7 +364,7 @@ const HomePage = () => {
 
   return (
     <main className="app-wallpaper-bg mx-auto flex min-h-screen w-full max-w-md flex-col bg-background">
-      <header className="relative flex items-center justify-between bg-primary px-4 py-3 text-primary-foreground shadow-card">
+      <header className="relative flex items-center justify-between bg-primary px-4 py-3 text-primary-foreground shadow-card" style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
         {showRecentCalls ? (
           <div className="flex min-h-9 items-center">
             <h1 className="text-xl font-semibold">Recent Call</h1>

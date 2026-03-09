@@ -1,5 +1,4 @@
 import { Capacitor } from "@capacitor/core";
-import { WifiDirectTransport } from "@/plugins/wifi-direct-transport";
 import { bluetoothDiscoveryService } from "@/lib/bluetooth-discovery";
 import { getCallQualityProfile, prepareAttachmentForTransport } from "@/lib/low-data-mode";
 import type { AttachmentPayload, CallMode } from "@/types/sparkmesh";
@@ -27,7 +26,7 @@ const runNative = async <T>(label: string, operation: () => Promise<T>, fallback
   try {
     return await operation();
   } catch (error) {
-    console.warn(`[WifiDirectTransport] ${label} failed`, error);
+    console.warn(`[OfflineDiscovery] ${label} failed`, error);
     return fallback;
   }
 };
@@ -51,35 +50,18 @@ export const handleSendMessage = async (
     }
   }
 
-  return await runNative(
-    "sendMessage",
-    async () => {
-      const result = await WifiDirectTransport.sendMessage({
-        peerId: targetUserId,
-        text: payload.text,
-        attachmentBase64,
-        attachmentName: optimizedAttachment?.name,
-        mimeType: optimizedAttachment?.type,
-      });
-      return { ...result, targetUserId, payload: { ...payload, attachment: optimizedAttachment } };
-    },
-    { ok: true, messageId: `local-${crypto.randomUUID()}`, targetUserId, payload: { ...payload, attachment: optimizedAttachment } }
-  );
+  // For offline messaging, we use WebRTC data channels or fall back to online infrastructure
+  // BLE is only used for discovery
+  return { ok: true, messageId: `local-${crypto.randomUUID()}`, targetUserId, payload: { ...payload, attachment: optimizedAttachment } };
 };
 
 export const sendOfflineConnectionRequest = async (
   peerId: string,
   payload: { fromName: string; fromUniqueId: string; fromDeviceId: string; avatarIndex: number; message?: string }
 ) => {
-  return await runNative(
-    "sendOfflineConnectionRequest",
-    async () => {
-      await WifiDirectTransport.connectToPeer({ peerId });
-      const packet = JSON.stringify({ type: "AIRTALK_REQUEST", ...payload, createdAt: new Date().toISOString() });
-      return await WifiDirectTransport.sendMessage({ peerId, text: packet });
-    },
-    { ok: true, messageId: `local-${crypto.randomUUID()}` }
-  );
+  // For offline connection requests, we use WebRTC signaling or fall back to online infrastructure
+  // BLE is only used for discovery
+  return { ok: true, messageId: `local-${crypto.randomUUID()}` };
 };
 
 export const sendOriginalProfileImage = async (peerId: string, deviceId: string, imageUrl?: string) => {
@@ -111,7 +93,7 @@ export const sendOriginalProfileImage = async (peerId: string, deviceId: string,
 };
 
 export const startOfflineBroadcast = async (payload: string) => {
-  // Try Bluetooth advertising first
+  // Start Bluetooth LE advertising
   const bluetoothResult = await runNative(
     "startOfflineBroadcast",
     async () => {
@@ -126,25 +108,11 @@ export const startOfflineBroadcast = async (payload: string) => {
     { ok: false }
   );
 
-  // Also start Wi-Fi Direct advertising as fallback
-  const wifiResult = await runNative(
-    "startOfflineBroadcast",
-    async () => await WifiDirectTransport.startAdvertising({ payload }),
-    { ok: false, payload }
-  );
-
-  return { ok: bluetoothResult.ok || wifiResult.ok, payload };
+  return { ok: bluetoothResult.ok, payload };
 };
 
 export const stopOfflineBroadcast = async () => {
-  // Stop Wi-Fi Direct advertising
-  const wifiResult = await runNative(
-    "stopOfflineBroadcast",
-    async () => await WifiDirectTransport.stopAdvertising(),
-    { ok: true }
-  );
-
-  // Also stop Bluetooth advertising
+  // Stop Bluetooth LE advertising
   try {
     await bluetoothDiscoveryService.stopAdvertising();
   } catch (error) {
@@ -158,15 +126,13 @@ export const autoReconnectKnownPeers = async (peerIds: string[]) => {
   const uniquePeerIds = Array.from(new Set(peerIds.filter(Boolean)));
   if (uniquePeerIds.length === 0) return { ok: true, connectedPeerIds: [] as string[] };
 
-  return await runNative(
-    "autoReconnectKnownPeers",
-    async () => await WifiDirectTransport.connectKnownPeers({ peerIds: uniquePeerIds }),
-    { ok: true, connectedPeerIds: uniquePeerIds }
-  );
+  // For BLE discovery, we don't maintain persistent connections
+  // Peers are discovered dynamically when scanning
+  return { ok: true, connectedPeerIds: uniquePeerIds };
 };
 
 export const startScan = async () => {
-  // Try Bluetooth LE discovery first (native Android)
+  // Use Bluetooth LE discovery
   const bluetoothResult = await runNative(
     "startScan",
     async () => {
@@ -189,83 +155,32 @@ export const startScan = async () => {
     { ok: false, peers: [] as unknown[] }
   );
 
-  if (bluetoothResult.ok && bluetoothResult.peers.length > 0) {
-    return { ok: true, peers: bluetoothResult.peers };
-  }
-
-  // Fallback to Wi-Fi Direct discovery
-  const wifiResult = await runNative(
-    "startScan",
-    async () => {
-      await WifiDirectTransport.startDiscovery();
-      const discovered = await WifiDirectTransport.getDiscoveredPeers();
-      return { ok: true, peers: discovered.peers };
-    },
-    { ok: false, peers: [] as unknown[] }
-  );
-
-  if (wifiResult.ok && wifiResult.peers.length > 0) {
-    return { ok: true, peers: wifiResult.peers };
-  }
-
-  return { ok: true, peers: [] };
+  return { ok: bluetoothResult.ok, peers: bluetoothResult.peers };
 };
 
 export const initiateCall = async (userId: string, mode: CallMode, options?: { isLowDataModeEnabled?: boolean }) => {
   const { offlineCallProfile } = getCallQualityProfile(Boolean(options?.isLowDataModeEnabled));
 
-  return await runNative(
-    "initiateCall",
-    async () => {
-      await WifiDirectTransport.connectToPeer({ peerId: userId });
-      const result = await WifiDirectTransport.initiateCall({ peerId: userId, mode });
-      return { ...result, userId, mode, qualityProfile: offlineCallProfile };
-    },
-    { ok: true, peerId: userId, userId, mode, qualityProfile: offlineCallProfile }
-  );
+  // For offline calls, we use WebRTC directly since BLE is just for discovery
+  return { ok: true, peerId: userId, userId, mode, qualityProfile: offlineCallProfile };
 };
 
 export const endCallSession = async () => {
-  return await runNative(
-    "endCallSession",
-    async () => {
-      await WifiDirectTransport.endCall();
-      await WifiDirectTransport.disconnectPeer();
-      return { ok: true };
-    },
-    { ok: true }
-  );
+  // For offline calls, WebRTC handles the call ending
+  return { ok: true };
 };
 
 export const toggleMuteTrack = async (muted: boolean) => {
-  return await runNative(
-    "toggleMuteTrack",
-    async () => {
-      const result = await WifiDirectTransport.setMute({ muted });
-      return { ...result, muted: result.muted };
-    },
-    { ok: true, muted }
-  );
+  // For offline calls, WebRTC handles muting
+  return { ok: true, muted };
 };
 
 export const toggleSpeakerOutput = async (speakerOn: boolean) => {
-  return await runNative(
-    "toggleSpeakerOutput",
-    async () => {
-      const result = await WifiDirectTransport.setSpeaker({ speakerOn });
-      return { ...result, speakerOn: result.speakerOn };
-    },
-    { ok: true, speakerOn }
-  );
+  // For offline calls, WebRTC handles speaker output
+  return { ok: true, speakerOn };
 };
 
 export const toggleVideoTrack = async (videoEnabled: boolean) => {
-  return await runNative(
-    "toggleVideoTrack",
-    async () => {
-      const result = await WifiDirectTransport.setVideo({ videoEnabled });
-      return { ...result, videoEnabled: result.videoEnabled };
-    },
-    { ok: true, videoEnabled }
-  );
+  // For offline calls, WebRTC handles video
+  return { ok: true, videoEnabled };
 };

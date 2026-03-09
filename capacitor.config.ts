@@ -15,6 +15,7 @@ const config: CapacitorConfig = {
         scanningFinished: "Scan finished",
       },
     },
+    Zeroconf: {},
   },
 };
 

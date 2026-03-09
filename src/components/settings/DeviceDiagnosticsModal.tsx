@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getMissingPermissions, loadPermissionStatuses } from "@/lib/permission-status";
-import { WifiDirectTransport } from "@/plugins/wifi-direct-transport";
+import { bluetoothDiscoveryService } from "@/lib/bluetooth-discovery";
 
 type DeviceDiagnosticsModalProps = {
   open: boolean;
@@ -21,7 +21,7 @@ type DiagnosticItem = {
 };
 
 const baseItems: Array<Omit<DiagnosticItem, "status" | "detail">> = [
-  { id: "wifi-direct", label: "Wi-Fi Direct Adapter Status" },
+  { id: "bluetooth-le", label: "Bluetooth LE Discovery Status" },
   { id: "bluetooth-nearby", label: "Bluetooth & Nearby Share Status" },
   { id: "p2p-permissions", label: "Peer-to-Peer (P2P) Permissions" },
   { id: "network-storage", label: "Network Sync & Storage Access" },
@@ -68,22 +68,21 @@ const DeviceDiagnosticsModal = ({ open, onOpenChange }: DeviceDiagnosticsModalPr
         if (cancelled) return;
         applyResult(item.id, "loading", "Checking…");
 
-        if (item.id === "wifi-direct") {
+        if (item.id === "bluetooth-le") {
           if (!isAndroidNative) {
-            applyResult(item.id, "warning", "Web preview: Wi-Fi Direct hardware check unavailable. Test in Android native app.");
-            continue;
-          }
-
-          if (!Capacitor.isPluginAvailable("WifiDirectTransport")) {
-            applyResult(item.id, "failed", "WifiDirectTransport plugin not available on this build.");
+            applyResult(item.id, "warning", "Web preview: Bluetooth LE hardware check unavailable. Test in Android native app.");
             continue;
           }
 
           try {
-            await WifiDirectTransport.getDiscoveredPeers();
-            applyResult(item.id, "passed", "Wi-Fi Direct adapter is reachable.");
+            const initialized = await bluetoothDiscoveryService.initialize();
+            if (initialized) {
+              applyResult(item.id, "passed", "Bluetooth LE adapter is reachable.");
+            } else {
+              applyResult(item.id, "failed", "Unable to initialize Bluetooth LE adapter.");
+            }
           } catch {
-            applyResult(item.id, "failed", "Unable to access Wi-Fi Direct adapter. Check Android permissions/settings.");
+            applyResult(item.id, "failed", "Unable to access Bluetooth LE adapter. Check Android permissions/settings.");
           }
           continue;
         }

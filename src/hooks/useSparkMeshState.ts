@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
+import { App } from '@capacitor/app';
 import { Preferences } from "@capacitor/preferences";
 import {
   endCallSession,
@@ -17,7 +18,6 @@ import { getPlatformSyncedDeviceId } from "@/lib/device-id";
 import { clearLocalProfileSnapshot, loadLocalProfileSnapshot, saveLocalProfileSnapshot } from "@/lib/local-auth-profile";
 import { useAppSettings } from "@/context/AppSettingsContext";
 import { supabase } from "@/integrations/supabase/client";
-import { WifiDirectTransport } from "@/plugins/wifi-direct-transport";
 import {
   clearNativeIncomingCallNotification,
   initializeNativeCallNotifications,
@@ -25,6 +25,7 @@ import {
 } from "@/lib/native-call-notifications";
 import { buildBroadcastIdentifier } from "@/lib/offline-p2p";
 import { startOfflineBroadcast } from "@/lib/sparkmesh-backend";
+import { backgroundNotificationService } from "@/lib/background-notifications";
 import type {
   AppMode,
   AttachmentPayload,
@@ -165,6 +166,9 @@ export const useSparkMeshState = () => {
   const [isMuted, setMuted] = useState(false);
   const [speakerOn, setSpeakerOn] = useState(true);
   const [videoEnabled, setVideoEnabled] = useState(true);
+  const [friendRequestModalOpen, setFriendRequestModalOpen] = useState(false);
+  const [pendingFriendRequest, setPendingFriendRequest] = useState<IncomingAirTalkRequest | null>(null);
+  const [isAppActive, setIsAppActive] = useState(true);
 
   const { isLowDataModeEnabled } = useAppSettings();
 
@@ -197,6 +201,29 @@ export const useSparkMeshState = () => {
   useEffect(() => {
     localStorage.setItem(MESSAGE_CACHE_KEY, JSON.stringify(messagesByUser));
   }, [messagesByUser]);
+
+  // App state listener for background notifications
+  useEffect(() => {
+    let appStateListener: PluginListenerHandle | null = null;
+
+    const setupAppStateListener = async () => {
+      try {
+        appStateListener = await App.addListener('appStateChange', ({ isActive }) => {
+          setIsAppActive(isActive);
+        });
+      } catch (error) {
+        console.warn('Failed to setup app state listener:', error);
+      }
+    };
+
+    void setupAppStateListener();
+
+    return () => {
+      if (appStateListener) {
+        void appStateListener.remove();
+      }
+    };
+  }, []);
 
   const loadUsers = useCallback(async (currentUserId: string) => {
     const { data: contactRows } = await supabase.from("contacts").select("contact_id").eq("user_id", currentUserId);
@@ -487,8 +514,6 @@ export const useSparkMeshState = () => {
     let contactsChannel: ReturnType<typeof supabase.channel> | null = null;
     let messageChannel: ReturnType<typeof supabase.channel> | null = null;
     let participantChannel: ReturnType<typeof supabase.channel> | null = null;
-    let peersListener: PluginListenerHandle | null = null;
-    let messageListener: PluginListenerHandle | null = null;
 
     const bootstrap = async () => {
       const {
@@ -549,75 +574,6 @@ export const useSparkMeshState = () => {
       await loadMessagesForCurrentUser(currentUserId);
       await loadCallHistory(currentUserId);
 
-      if (Capacitor.isPluginAvailable("WifiDirectTransport")) {
-        try {
-        peersListener = await WifiDirectTransport.addListener("peersUpdated", (event) => {
-          const discoveredUsers = (event.peers ?? [])
-            .map(mapDiscoveredPeerToUser)
-            .filter((entry): entry is SparkMeshUser => entry !== null);
-
-          reconcileWifiDirectUsers(discoveredUsers);
-        });
-
-        messageListener = await WifiDirectTransport.addListener("messageReceived", (event) => {
-          if (!event.fromPeerId) return;
-
-          const timestamp = Number(event.receivedAt);
-          const createdAt = Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : new Date().toISOString();
-          const mimeType = event.mimeType?.trim() || "application/octet-stream";
-          const attachmentName = event.attachmentName?.trim() || `attachment-${Date.now()}`;
-          const attachmentBase64 = event.attachmentBase64?.trim();
-
-          const attachment = attachmentBase64
-            ? {
-                id: crypto.randomUUID(),
-                name: attachmentName,
-                type: mimeType,
-                size: Math.floor((attachmentBase64.length * 3) / 4),
-                url: `data:${mimeType};base64,${attachmentBase64}`,
-                progress: 100,
-              }
-            : undefined;
-
-          const incomingMessage: SparkMeshMessage = {
-            id: crypto.randomUUID(),
-            chatUserId: event.fromPeerId,
-            direction: "received",
-            text: event.text,
-            attachment,
-            createdAt,
-            status: "read",
-          };
-
-          setMessagesByUser((prev) => ({
-            ...prev,
-            [event.fromPeerId]: [...(prev[event.fromPeerId] ?? []), incomingMessage],
-          }));
-
-          setUsers((prev) => {
-            if (prev.some((user) => user.id === event.fromPeerId)) return prev;
-
-            const shortId = event.fromPeerId.slice(0, 8).toUpperCase();
-            const newNearbyUser: SparkMeshUser = {
-              id: event.fromPeerId,
-              name: `Nearby ${shortId}`,
-              deviceId: event.fromPeerId,
-              avatarSeed: shortId.toLowerCase(),
-              onlineStatus: true,
-              lastSeen: createdAt,
-              source: "wifi-direct",
-            };
-
-            const nextUsers = [newNearbyUser, ...prev];
-            cacheOfflineUsers(nextUsers);
-            return nextUsers;
-          });
-        });
-        } catch {
-          // Native plugin not available on web preview.
-        }
-      }
-
       requestChannel = supabase
         .channel(`incoming-requests-${currentUserId}`)
         .on(
@@ -631,14 +587,28 @@ export const useSparkMeshState = () => {
               .eq("user_id", senderId)
               .maybeSingle();
 
-            setIncomingRequest({
+            const request = {
               id: payload.new.id as string,
               senderId,
               senderName: sender?.display_name ?? "Unknown user",
               senderAvatarUrl: sender?.avatar_url ?? undefined,
               requestMessage: (payload.new.request_message as string | null) ?? undefined,
               createdAt: payload.new.created_at as string,
-            });
+            };
+
+            if (isAppActive) {
+              // Show modal in foreground
+              setPendingFriendRequest(request);
+              setFriendRequestModalOpen(true);
+            } else {
+              // Send background notification
+              await backgroundNotificationService.showFriendRequestNotification({
+                fromUserName: request.senderName,
+                message: request.requestMessage,
+              });
+            }
+
+            setIncomingRequest(request);
           }
         )
         .on(
@@ -686,6 +656,21 @@ export const useSparkMeshState = () => {
               expires_at: payload.new.expires_at as string,
               status: payload.new.status as string,
             });
+
+            // Send background notification for incoming calls if app is inactive
+            if (payload.eventType === "INSERT" && !isAppActive) {
+              const senderId = payload.new.sender_id as string;
+              const { data: sender } = await supabase
+                .from("profiles")
+                .select("display_name")
+                .eq("user_id", senderId)
+                .maybeSingle();
+
+              await backgroundNotificationService.showCallNotification({
+                fromUserName: sender?.display_name ?? "Unknown user",
+                callType: payload.new.call_type as string,
+              });
+            }
           }
         )
         .on(
@@ -734,8 +719,27 @@ export const useSparkMeshState = () => {
 
       messageChannel = supabase
         .channel(`messages-${currentUserId}`)
-        .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, async () => {
+        .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, async (payload) => {
           await loadMessagesForCurrentUser(currentUserId);
+
+          // Send background notification for new messages if app is inactive
+          if (payload.eventType === "INSERT" && !isAppActive) {
+            const messageData = payload.new;
+            const senderId = messageData.sender_id as string;
+            if (senderId !== currentUserId) {
+              const { data: sender } = await supabase
+                .from("profiles")
+                .select("display_name")
+                .eq("user_id", senderId)
+                .maybeSingle();
+
+              await backgroundNotificationService.showChatMessageNotification({
+                fromUserName: sender?.display_name ?? "Unknown user",
+                text: messageData.content as string | undefined,
+                hasAttachment: Boolean(messageData.attachment_url),
+              });
+            }
+          }
         })
         .subscribe();
 
@@ -763,8 +767,6 @@ export const useSparkMeshState = () => {
       if (contactsChannel) supabase.removeChannel(contactsChannel);
       if (messageChannel) supabase.removeChannel(messageChannel);
       if (participantChannel) supabase.removeChannel(participantChannel);
-      if (peersListener) void peersListener.remove();
-      if (messageListener) void messageListener.remove();
     };
   }, [addCallHistoryEntry, cacheOfflineUsers, loadCallHistory, loadMessagesForCurrentUser, loadPendingIncomingCall, loadUsers, mapInviteToBanner, reconcileWifiDirectUsers]);
 
@@ -1574,6 +1576,23 @@ export const useSparkMeshState = () => {
     });
   }, []);
 
+  const acceptPendingFriendRequest = useCallback(async () => {
+    if (!pendingFriendRequest) return;
+    await supabase.rpc("accept_contact_request", { _request_id: pendingFriendRequest.id });
+    if (authUserId) {
+      await loadUsers(authUserId);
+    }
+    setPendingFriendRequest(null);
+    setFriendRequestModalOpen(false);
+  }, [authUserId, pendingFriendRequest, loadUsers]);
+
+  const declinePendingFriendRequest = useCallback(async () => {
+    if (!pendingFriendRequest) return;
+    await supabase.from("contact_requests").update({ status: "declined" }).eq("id", pendingFriendRequest.id);
+    setPendingFriendRequest(null);
+    setFriendRequestModalOpen(false);
+  }, [pendingFriendRequest]);
+
   return useMemo(
     () => ({
       authUserId,
@@ -1625,6 +1644,10 @@ export const useSparkMeshState = () => {
       toggleMute,
       toggleSpeaker,
       toggleVideo,
+      friendRequestModalOpen,
+      pendingFriendRequest,
+      acceptPendingFriendRequest,
+      declinePendingFriendRequest,
     }),
     [
       authUserId,
@@ -1673,6 +1696,10 @@ export const useSparkMeshState = () => {
       toggleMute,
       toggleSpeaker,
       toggleVideo,
+      friendRequestModalOpen,
+      pendingFriendRequest,
+      acceptPendingFriendRequest,
+      declinePendingFriendRequest,
     ]
   );
 };

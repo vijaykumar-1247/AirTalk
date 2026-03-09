@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SparkMeshProvider, useSparkMesh } from "@/context/SparkMeshContext";
 import { applyAppearanceSettings, loadAppearanceSettings } from "@/lib/appearance-settings";
 import { initializeNativeCallNotifications, isNativeCallNotificationSupported, onNativeIncomingCallAction } from "@/lib/native-call-notifications";
+import FriendRequestModal from "@/components/sparkmesh/FriendRequestModal";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -114,7 +115,13 @@ const GlobalIncomingCallLayer = () => {
 };
 
 const App = () => {
-  const { isInitializing } = useSparkMesh();
+  const {
+    isInitializing,
+    friendRequestModalOpen,
+    pendingFriendRequest,
+    acceptPendingFriendRequest,
+    declinePendingFriendRequest
+  } = useSparkMesh();
 
   useEffect(() => {
     applyAppearanceSettings(loadAppearanceSettings());
@@ -231,6 +238,16 @@ const App = () => {
               <Route element={<NotFound />} path="*" />
             </Routes>
           </BrowserRouter>
+
+          <FriendRequestModal
+            open={friendRequestModalOpen}
+            onOpenChange={() => {}}
+            senderName={pendingFriendRequest?.senderName ?? ""}
+            senderAvatarUrl={pendingFriendRequest?.senderAvatarUrl}
+            requestMessage={pendingFriendRequest?.requestMessage}
+            onAccept={acceptPendingFriendRequest}
+            onDecline={declinePendingFriendRequest}
+          />
         </TooltipProvider>
     </QueryClientProvider>
   );

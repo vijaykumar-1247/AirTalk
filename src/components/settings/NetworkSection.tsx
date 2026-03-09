@@ -2,7 +2,7 @@ import { Capacitor } from "@capacitor/core";
 import { Info, RadioTower, Router, Stethoscope } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import DeviceDiagnosticsModal from "@/components/settings/DeviceDiagnosticsModal";
-import { WifiDirectTransport, type WifiDirectPeer } from "@/plugins/wifi-direct-transport";
+import { bluetoothDiscoveryService } from "@/lib/bluetooth-discovery";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -18,15 +18,22 @@ type NetworkSectionProps = {
   onLowDataModeChange: (value: boolean) => void;
 };
 
+type BluetoothPeer = {
+  deviceId: string;
+  name: string;
+  rssi: number;
+  rangeMeters?: number;
+};
+
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-const getRangeMetersFromPeer = (peer: WifiDirectPeer) => {
+const getRangeMetersFromPeer = (peer: BluetoothPeer) => {
   if (typeof peer.rangeMeters === "number" && Number.isFinite(peer.rangeMeters) && peer.rangeMeters > 0) {
     return peer.rangeMeters;
   }
 
-  if (typeof peer.signalStrength === "number" && Number.isFinite(peer.signalStrength)) {
-    const normalized = clamp((peer.signalStrength + 90) / 55, 0, 1);
+  if (typeof peer.rssi === "number" && Number.isFinite(peer.rssi)) {
+    const normalized = clamp((peer.rssi + 90) / 55, 0, 1);
     return Math.round(35 - normalized * 32);
   }
 
@@ -37,7 +44,7 @@ const NetworkSection = ({ autoScan, lowDataMode, currentPing, onAutoScanChange, 
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [isRangeScanActive, setIsRangeScanActive] = useState(false);
   const [isRangeLoading, setIsRangeLoading] = useState(false);
-  const [rangePeers, setRangePeers] = useState<WifiDirectPeer[]>([]);
+  const [rangePeers, setRangePeers] = useState<BluetoothPeer[]>([]);
   const [rangeError, setRangeError] = useState<string | null>(null);
   const [lastRangeUpdatedAt, setLastRangeUpdatedAt] = useState<string | null>(null);
 
@@ -53,12 +60,22 @@ const NetworkSection = ({ autoScan, lowDataMode, currentPing, onAutoScanChange, 
     setRangeError(null);
 
     try {
-      await WifiDirectTransport.startDiscovery();
-      const { peers } = await WifiDirectTransport.getDiscoveredPeers();
-      setRangePeers(peers);
-      setLastRangeUpdatedAt(new Date().toISOString());
+      const bluetoothInitialized = await bluetoothDiscoveryService.initialize();
+      if (bluetoothInitialized) {
+        const devices = await bluetoothDiscoveryService.startDiscovery(5000);
+        const peers: BluetoothPeer[] = devices.map(device => ({
+          deviceId: device.deviceId,
+          name: device.name,
+          rssi: device.signalStrength,
+          rangeMeters: device.rangeMeters,
+        }));
+        setRangePeers(peers);
+        setLastRangeUpdatedAt(new Date().toISOString());
+      } else {
+        setRangeError("Bluetooth LE not available.");
+      }
     } catch {
-      setRangeError("Could not read Wi-Fi Direct range data.");
+      setRangeError("Could not read Bluetooth LE range data.");
     } finally {
       setIsRangeLoading(false);
     }
@@ -79,7 +96,7 @@ const NetworkSection = ({ autoScan, lowDataMode, currentPing, onAutoScanChange, 
     if (!isRangeScanActive || !isNativeAndroid) return;
 
     return () => {
-      void WifiDirectTransport.stopDiscovery();
+      void bluetoothDiscoveryService.stopDiscovery();
     };
   }, [isNativeAndroid, isRangeScanActive]);
 
