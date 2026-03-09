@@ -38,6 +38,7 @@ class AppErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error) {
+    console.error(error);
     handleAppError(error, "Global Error Boundary");
   }
 

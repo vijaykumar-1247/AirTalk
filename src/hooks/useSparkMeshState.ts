@@ -498,7 +498,11 @@ export const useSparkMeshState = () => {
         const localProfile = loadLocalProfileSnapshot();
         setAuthUserId(null);
         setProfile(localProfile);
-        await Preferences.set({ key: 'profile', value: JSON.stringify(localProfile) });
+        try {
+          await Preferences.set({ key: 'profile', value: JSON.stringify(localProfile) });
+        } catch (error) {
+          console.warn('Failed to save profile to preferences:', error);
+        }
         setAppMode("offline");
         setIsInitializing(false);
         return;
@@ -519,7 +523,11 @@ export const useSparkMeshState = () => {
 
         const mappedProfile = mapProfile({ ...ownProfile, device_id: syncedDeviceId }, syncedDeviceId);
         setProfile(mappedProfile);
-        await Preferences.set({ key: 'profile', value: JSON.stringify(mappedProfile) });
+        try {
+          await Preferences.set({ key: 'profile', value: JSON.stringify(mappedProfile) });
+        } catch (error) {
+          console.warn('Failed to save profile to preferences:', error);
+        }
         saveLocalProfileSnapshot(mappedProfile, "online");
       }
 

@@ -133,21 +133,20 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <SparkMeshProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            
-            <GlobalIncomingCallLayer />
-            <Routes>
-              <Route
-                element={
-                  <GuestRoute>
-                    <Index />
-                  </GuestRoute>
-                }
-                path="/"
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          
+          <GlobalIncomingCallLayer />
+          <Routes>
+            <Route
+              element={
+                <GuestRoute>
+                  <Index />
+                </GuestRoute>
+              }
+              path="/"
               />
               <Route
                 element={
@@ -233,7 +232,6 @@ const App = () => {
             </Routes>
           </BrowserRouter>
         </TooltipProvider>
-      </SparkMeshProvider>
     </QueryClientProvider>
   );
 };
