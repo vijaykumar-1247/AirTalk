@@ -273,9 +273,15 @@ const ScanNearby = () => {
       const activeSender = getActiveSender();
       await startOfflineBroadcast(buildBroadcastIdentifier(activeSender));
 
+      // Show scanning status for a few seconds
+      setScannedDevices([]); // Clear previous results
+
       const discoveredUsers = await startNetworkScan();
-      const wifiUsers = discoveredUsers.filter((entry) => entry.source === "wifi-direct").map(hydrateOfflineUserCard);
-      setScannedDevices(wifiUsers);
+      const allUsers = discoveredUsers
+        .filter((entry) => entry.source === "wifi-direct" || entry.source === "bluetooth")
+        .map(hydrateOfflineUserCard);
+
+      setScannedDevices(allUsers);
       setIsScanning(false);
       return;
     }

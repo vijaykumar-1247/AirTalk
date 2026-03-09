@@ -1,5 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { WifiDirectTransport } from "@/plugins/wifi-direct-transport";
+import { bluetoothDiscoveryService } from "@/lib/bluetooth-discovery";
 import { getCallQualityProfile, prepareAttachmentForTransport } from "@/lib/low-data-mode";
 import type { AttachmentPayload, CallMode } from "@/types/sparkmesh";
 
@@ -110,19 +111,44 @@ export const sendOriginalProfileImage = async (peerId: string, deviceId: string,
 };
 
 export const startOfflineBroadcast = async (payload: string) => {
-  return await runNative(
+  // Try Wi-Fi Direct advertising first
+  const wifiResult = await runNative(
     "startOfflineBroadcast",
     async () => await WifiDirectTransport.startAdvertising({ payload }),
-    { ok: true, payload }
+    { ok: false, payload }
   );
+
+  // Also start Bluetooth advertising as fallback
+  try {
+    const bluetoothInitialized = await bluetoothDiscoveryService.initialize();
+    if (bluetoothInitialized) {
+      // Extract device name from payload for Bluetooth advertising
+      const deviceName = payload.split('|')[0] || 'AirTalk Device';
+      await bluetoothDiscoveryService.startAdvertising(deviceName);
+    }
+  } catch (error) {
+    console.warn('Bluetooth advertising fallback failed:', error);
+  }
+
+  return { ok: true, payload };
 };
 
 export const stopOfflineBroadcast = async () => {
-  return await runNative(
+  // Stop Wi-Fi Direct advertising
+  const wifiResult = await runNative(
     "stopOfflineBroadcast",
     async () => await WifiDirectTransport.stopAdvertising(),
     { ok: true }
   );
+
+  // Also stop Bluetooth advertising
+  try {
+    await bluetoothDiscoveryService.stopAdvertising();
+  } catch (error) {
+    console.warn('Failed to stop Bluetooth advertising:', error);
+  }
+
+  return { ok: true };
 };
 
 export const autoReconnectKnownPeers = async (peerIds: string[]) => {
@@ -137,15 +163,43 @@ export const autoReconnectKnownPeers = async (peerIds: string[]) => {
 };
 
 export const startScan = async () => {
-  return await runNative(
+  // Try Wi-Fi Direct first (native Android)
+  const wifiResult = await runNative(
     "startScan",
     async () => {
       await WifiDirectTransport.startDiscovery();
       const discovered = await WifiDirectTransport.getDiscoveredPeers();
       return { ok: true, peers: discovered.peers };
     },
-    { ok: true, peers: [] as unknown[] }
+    { ok: false, peers: [] as unknown[] }
   );
+
+  if (wifiResult.ok && wifiResult.peers.length > 0) {
+    return { ok: true, peers: wifiResult.peers };
+  }
+
+  // Fallback to Bluetooth LE discovery
+  try {
+    const bluetoothInitialized = await bluetoothDiscoveryService.initialize();
+    if (bluetoothInitialized) {
+      const bluetoothDevices = await bluetoothDiscoveryService.startDiscovery(8000);
+      // Convert SparkMeshUser[] to the expected peer format
+      const bluetoothPeers = bluetoothDevices.map(device => ({
+        peerId: device.id,
+        deviceName: device.name,
+        deviceAddress: device.deviceId,
+        signalStrength: device.signalStrength,
+        rangeMeters: device.rangeMeters,
+        status: 'available' as const,
+      }));
+
+      return { ok: true, peers: bluetoothPeers };
+    }
+  } catch (error) {
+    console.warn('Bluetooth discovery fallback failed:', error);
+  }
+
+  return { ok: true, peers: [] };
 };
 
 export const initiateCall = async (userId: string, mode: CallMode, options?: { isLowDataModeEnabled?: boolean }) => {
