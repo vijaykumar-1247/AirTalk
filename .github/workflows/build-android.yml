@@ -1,4 +1,5 @@
 name: Build Android APK
+# Updated to use Bun and Node 22 for Capacitor compatibility
 on:
   push:
     branches: [ "main" ]
@@ -26,6 +27,12 @@ jobs:
 
       - name: Build Web App
         run: bun run build
+
+      - name: Verify Node Version
+        run: |
+          node --version
+          which node
+          echo $PATH
 
       - name: Setup Java
         uses: actions/setup-java@v4
