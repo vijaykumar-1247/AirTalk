@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 210 24% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 210 24% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 24% 12%;
+
+    --primary: 174 86% 20%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 145 28% 96%;
+    --secondary-foreground: 174 86% 20%;
+
+    --muted: 145 20% 94%;
+    --muted-foreground: 212 14% 40%;
+
+    --accent: 142 70% 49%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 75% 54%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 165 16% 80%;
+    --input: 165 16% 80%;
+    --ring: 142 70% 49%;
+
+    --message-sent: 143 63% 86%;
+    --message-received: 0 0% 100%;
+    --ping: 142 70% 49%;
+    --signal-weak: 0 90% 68%;
+    --signal-stable: 44 96% 62%;
+    --signal-excellent: 142 70% 49%;
+
+    --call-surface: 212 30% 8%;
+    --call-foreground: 0 0% 98%;
+    --call-muted: 210 12% 68%;
+
+    --avatar-ring: 150 35% 84%;
+    --overlay: 212 20% 6%;
+    --app-wallpaper-image: none;
+    --app-wallpaper-size: cover;
+    --app-wallpaper-position: center;
+    --chat-wallpaper-image: none;
+    --chat-wallpaper-size: cover;
+    --chat-wallpaper-position: center;
+
+    --radius: 1rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 210 29% 11%;
+    --foreground: 0 0% 98%;
+    --card: 212 26% 14%;
+    --card-foreground: 0 0% 98%;
+    --popover: 212 26% 14%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 173 86% 20%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 212 20% 22%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 212 20% 18%;
+    --muted-foreground: 210 12% 72%;
+    --accent: 142 70% 49%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 75% 54%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 212 15% 25%;
+    --input: 212 15% 25%;
+    --ring: 142 70% 49%;
+    --message-sent: 143 42% 34%;
+    --message-received: 212 26% 16%;
+    --ping: 142 70% 49%;
+    --signal-weak: 0 82% 72%;
+    --signal-stable: 44 94% 66%;
+    --signal-excellent: 142 72% 58%;
+    --call-surface: 212 30% 8%;
+    --call-foreground: 0 0% 98%;
+    --call-muted: 210 12% 68%;
+    --avatar-ring: 173 48% 28%;
+    --overlay: 212 20% 6%;
+    --app-wallpaper-image: none;
+    --app-wallpaper-size: cover;
+    --app-wallpaper-position: center;
+    --chat-wallpaper-image: none;
+    --chat-wallpaper-size: cover;
+    --chat-wallpaper-position: center;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  *::-webkit-scrollbar {
+    display: none;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+}
+
+@layer utilities {
+  .app-wallpaper-bg {
+    background-color: hsl(var(--background));
+    background-image: var(--app-wallpaper-image);
+    background-size: var(--app-wallpaper-size);
+    background-position: var(--app-wallpaper-position);
+  }
+
+  .chat-doodle-bg {
+    background-color: hsl(var(--background));
+    background-image:
+      var(--chat-wallpaper-image),
+      radial-gradient(circle at 20% 20%, hsl(var(--primary) / 0.08) 0 2px, transparent 2px),
+      radial-gradient(circle at 80% 35%, hsl(var(--accent) / 0.1) 0 1.5px, transparent 1.5px),
+      radial-gradient(circle at 50% 70%, hsl(var(--primary) / 0.06) 0 2px, transparent 2px),
+      linear-gradient(135deg, hsl(var(--background)), hsl(var(--muted) / 0.55));
+    background-size: var(--chat-wallpaper-size), 28px 28px, 24px 24px, 32px 32px, 100% 100%;
+    background-position: var(--chat-wallpaper-position), center, center, center, center;
+  }
+}
+
