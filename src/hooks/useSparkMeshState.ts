@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
+import { Preferences } from "@capacitor/preferences";
 import {
   endCallSession,
   handleSendMessage,
@@ -141,6 +142,7 @@ const mapDiscoveredPeerToUser = (peer: unknown): SparkMeshUser | null => {
 export const useSparkMeshState = () => {
   const [profile, setProfile] = useState<SparkMeshProfile | null>(null);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [permissionsCompleted, setPermissionsCompleted] = useState(() => localStorage.getItem(PERMISSIONS_KEY) === "true");
   const [appMode, setAppMode] = useState<AppMode>(() => (localStorage.getItem(APP_MODE_KEY) === "offline" ? "offline" : "online"));
   const [offlineCachedUsers, setOfflineCachedUsers] = useState<SparkMeshUser[]>(() => loadCachedOfflineUsers());
@@ -496,7 +498,9 @@ export const useSparkMeshState = () => {
         const localProfile = loadLocalProfileSnapshot();
         setAuthUserId(null);
         setProfile(localProfile);
+        await Preferences.set({ key: 'profile', value: JSON.stringify(localProfile) });
         setAppMode("offline");
+        setIsInitializing(false);
         return;
       }
       setAuthUserId(currentUserId);
@@ -515,6 +519,7 @@ export const useSparkMeshState = () => {
 
         const mappedProfile = mapProfile({ ...ownProfile, device_id: syncedDeviceId }, syncedDeviceId);
         setProfile(mappedProfile);
+        await Preferences.set({ key: 'profile', value: JSON.stringify(mappedProfile) });
         saveLocalProfileSnapshot(mappedProfile, "online");
       }
 
@@ -522,7 +527,8 @@ export const useSparkMeshState = () => {
       await loadMessagesForCurrentUser(currentUserId);
       await loadCallHistory(currentUserId);
 
-      try {
+      if (Capacitor.isPluginAvailable("WifiDirectTransport")) {
+        try {
         peersListener = await WifiDirectTransport.addListener("peersUpdated", (event) => {
           const discoveredUsers = (event.peers ?? [])
             .map(mapDiscoveredPeerToUser)
@@ -585,8 +591,9 @@ export const useSparkMeshState = () => {
             return nextUsers;
           });
         });
-      } catch {
-        // Native plugin not available on web preview.
+        } catch {
+          // Native plugin not available on web preview.
+        }
       }
 
       requestChannel = supabase
@@ -721,6 +728,8 @@ export const useSparkMeshState = () => {
         )
         .subscribe();
     };
+
+    setIsInitializing(false);
 
     void bootstrap();
 
@@ -1547,6 +1556,7 @@ export const useSparkMeshState = () => {
     () => ({
       authUserId,
       profile,
+      isInitializing,
       users,
       appMode,
       setAppMode,

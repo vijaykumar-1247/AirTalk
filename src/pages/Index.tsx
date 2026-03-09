@@ -1,5 +1,6 @@
 import { ArrowRight, Globe2, Languages, Radio } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Preferences } from "@capacitor/preferences";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { type AppLanguage, useAppLanguage } from "@/lib/i18n";
@@ -41,7 +42,7 @@ const Index = () => {
       </section>
 
       <section className="mt-5 space-y-3">
-        <Button className="w-full gap-2" onClick={() => navigate("/login", { replace: true })} size="lg" type="button">
+        <Button className="w-full gap-2" onClick={async () => { await Preferences.set({ key: 'hasSeenIntro', value: 'true' }); navigate("/login", { replace: true }); }} size="lg" type="button">
           {t("intro.start")} <ArrowRight className="h-4 w-4" />
         </Button>
         <p className="flex items-center justify-center gap-1 text-xs text-muted-foreground">

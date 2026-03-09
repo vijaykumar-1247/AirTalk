@@ -23,7 +23,11 @@ The only requirement is having Bun installed - [install Bun](https://bun.sh/)
 Follow these steps:
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# Step 1: Clone the repository using the project'sAct as an expert React and Capacitor developer. The generated Android app is looking great, but I have two critical issues to fix:
+​1. Session Persistence (App Restart Issue): > When the user closes the app and reopens it, it resets to the Welcome/Intro screen and requires re-login. Please fix this by implementing robust state persistence using localStorage or @capacitor/preferences. Store the user's profile, session token, and a hasSeenIntro flag. Update the main Router or App.tsx logic to check this persisted state immediately on app load. If the user is already logged in, redirect them directly to the Home screen seamlessly without any UI glitch or flashing the welcome screen.
+​2. Wi-Fi Direct Plugin Error & Unhandled Promise Rejection: > On the Settings > Device Diagnostics page, it shows 'WifiDirectTransport plugin not available on this build' and throws an 'Unhandled promise rejection' toast error when scanning. Since this is a Capacitor wrapper and not bare React Native, please fix this logic. Ensure the diagnostic checks and the Wi-Fi Direct live scan fail gracefully without throwing unhandled promise rejections. Add try/catch blocks. If there's a specific Capacitor community plugin needed for local network/P2P, stub it out cleanly so it doesn't crash the app.
+​Please apply these logical fixes. Then, run the git commands to add all changes, commit with the message 'Fix session persistence and handle Wi-Fi Direct plugin errors', and push to the main branch to trigger the GitHub Actions buid."
+ Git URL.
 git clone https://github.com/vijaykumar-1247/AirTalk.git
 
 # Step 2: Navigate to the project directory.
