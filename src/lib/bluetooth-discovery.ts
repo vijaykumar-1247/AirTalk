@@ -20,6 +20,8 @@ class BluetoothDiscoveryService {
   async initialize(): Promise<boolean> {
     try {
       await BleClient.initialize();
+      // Request permissions explicitly for Android
+      await BleClient.requestPermissions();
       return true;
     } catch (error) {
       console.warn('Bluetooth LE initialization failed:', error);

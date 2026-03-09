@@ -12,7 +12,7 @@ const Index = () => {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-between bg-background px-4 py-8">
       <section className="flex flex-1 flex-col items-center justify-center space-y-6 rounded-3xl border border-border bg-card px-6 py-8 text-center shadow-card">
-        <img alt="AirTalk logo" className="h-20 w-20 rounded-2xl border border-border bg-background p-2" src="/favicon.ico" />
+        <img alt="AirTalk logo" className="h-20 w-20 rounded-2xl border border-border bg-background p-2" src="/logo.png" />
 
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight text-foreground">{t("intro.title")}</h1>

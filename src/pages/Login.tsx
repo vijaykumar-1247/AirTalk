@@ -140,7 +140,7 @@ const Login = () => {
         </div>
 
         {authMethod === "online" ? (
-          <div className="space-y-4">
+          <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void handleOnlineLogin(); }}>
             <div className="space-y-2">
               <label className="block text-sm font-medium text-foreground" htmlFor="credential">
                 {t("login.uniqueId")}
@@ -180,7 +180,7 @@ const Login = () => {
               </div>
             </div>
 
-            <Button className="w-full" disabled={!identifier.trim() || !password.trim() || isSubmittingOnline} onClick={() => void handleOnlineLogin()}>
+            <Button className="w-full" disabled={!identifier.trim() || !password.trim() || isSubmittingOnline} type="submit">
               {isSubmittingOnline ? (
                 <span className="inline-flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -197,7 +197,7 @@ const Login = () => {
                 {t("login.signup")}
               </Link>
             </p>
-          </div>
+          </form>
         ) : (
           <div className="space-y-4">
             <ProfileAvatarBar
