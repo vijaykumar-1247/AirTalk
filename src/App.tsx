@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { Navigate, Route, Routes, BrowserRouter, useLocation, useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { App } from '@capacitor/app';
 import IncomingCallBanner from "@/components/sparkmesh/IncomingCallBanner";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -23,6 +24,41 @@ import Permissions from "./pages/Permissions";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+// Hardware Back Button Handler for Android
+const HardwareBackButtonHandler = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    let backButtonListener: { remove: () => Promise<void> } | null = null;
+
+    const setupBackButtonListener = async () => {
+      backButtonListener = await App.addListener('backButton', () => {
+        // Define home/root screens where we should exit the app
+        const homeScreens = ['/', '/home', '/index'];
+
+        if (homeScreens.includes(location.pathname)) {
+          // On home screen, exit the app
+          App.exitApp();
+        } else {
+          // On any other screen, navigate back
+          navigate(-1);
+        }
+      });
+    };
+
+    setupBackButtonListener();
+
+    return () => {
+      if (backButtonListener) {
+        backButtonListener.remove();
+      }
+    };
+  }, [location.pathname, navigate]);
+
+  return null; // This component doesn't render anything
+};
 
 
 const GuardedRoute = ({ children, requirePermissions = true }: { children: JSX.Element; requirePermissions?: boolean }) => {
@@ -144,6 +180,7 @@ const App = () => {
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <HardwareBackButtonHandler />
           
           <GlobalIncomingCallLayer />
           <Routes>
